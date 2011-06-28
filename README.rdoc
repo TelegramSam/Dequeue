@@ -1,0 +1,80 @@
+= Mongo::Dequeue
+
+A de-duplicating priority queue that uses mongodb as the storage engine.
+
+Heavily inspired by Mongo::Queue https://github.com/skiz/mongo_queue
+
+== Features
+* Atomic Locking (provided by Mongo)
+* Thread Safe
+* Priority Support
+* Fully Tested
+* Simple API
+
+== Examples
+
+=== Setting up a queue
+Mongo::Dequeue requires a Mongo::Connection to your Mongo Server, and allows you to configure the database, 
+collection, and the default read timeout of items in your queue. Items popped from the queue must be confirmed
+complete, or they will be reissued after the timeout specified.
+
+    db = Mongo::Connection.new
+
+    options   = {
+      :database   => 'whateverdb',
+      :collection => 'my_queue',
+      :timeout    => 60
+    }
+
+    queue = Mongo::Dequeue.new(db, options)
+
+=== Pushing Items
+Items have a body, passed as the first argument to push(). A body can be a string, number, hash, or array. These 
+values are preserved in the Mongo collection used to store the queue, allowing you to inspect the queue and see these values.
+The optional options argument is a hash of values. you can set a custom duplicate_key that will be used to de-duplicate 
+queue items. There are no keys or reserved values in the body of an item. Pass in anything you like.
+
+
+	options = {
+		:duplicate_key => 'match'
+	}
+	
+	body = "foo"
+	body = 5
+	body = {
+		:stuff => "here"
+	}
+	body = ["a", "b", "c"]
+
+
+    queue.push(body,options)
+
+=== Popping Items
+Pop items with the pop() method. Specifying a timeout (in seconds) will override the default timeout set in 
+the queue options. After the timeout, the popped item will be available in another pop() call.
+    
+    item = queue.pop(:timeout => 1)
+    
+The pop call will return a hash, with an :id and a :body. After the queue item is done, be sure to call the 
+complete() method, with the id of the message.
+
+    queue.complete(item[:id])
+    
+Note that completed items are not removed from the database immediately, allowing inspection of completion times, 
+duplication numbers, etc. Calling the cleanup() method removes completed items.
+
+    queue.cleanup()
+  
+=== Queue Status
+You can call the +stats+ method to take a quick peek at your queue. Locked items are items that have been popped, 
+but not confirmed.
+
+   queue.stats
+   # => {:available => 3, :locked => 2, :complete => 5, :total => 10}
+
+=== Mongo::Queue Comparison
+
+* Items are not deleted immediately after completion.
+* Item locks auto-expire
+* Items are de-duplicated
+* No reserved words in item body
