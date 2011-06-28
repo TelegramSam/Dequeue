@@ -35,17 +35,16 @@ The optional options argument is a hash of values. you can set a custom duplicat
 queue items. There are no keys or reserved values in the body of an item. Pass in anything you like.
 
 
-	options = {
-		:duplicate_key => 'match'
-	}
+    options = {
+        :duplicate_key => 'match'
+    }
 	
-	body = "foo"
-	body = 5
-	body = {
-		:stuff => "here"
-	}
-	body = ["a", "b", "c"]
-
+    body = "foo"
+    body = 5
+    body = {
+        :stuff => "here"
+    }
+    body = ["a", "b", "c"]
 
     queue.push(body,options)
 
@@ -78,3 +77,8 @@ but not confirmed.
 * Item locks auto-expire
 * Items are de-duplicated
 * No reserved words in item body
+
+==== TODO
+
+* Adjust auto generated duplication_key to be more accurate.
+* Full examples
