@@ -38,7 +38,7 @@ queue items. There are no keys or reserved values in the body of an item. Pass i
     options = {
         :duplicate_key => 'match'
     }
-	
+    
     body = "foo"
     body = 5
     body = {
@@ -78,7 +78,7 @@ but not confirmed.
 * Items are de-duplicated
 * No reserved words in item body
 
-==== TODO
+=== TODO
 
 * Adjust auto generated duplication_key to be more accurate.
 * Full examples
