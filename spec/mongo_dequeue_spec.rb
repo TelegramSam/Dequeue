@@ -11,11 +11,9 @@ describe Mongo::Dequeue do
   
   before(:all) do
     opts   = {
-      :database   => 'mongo_queue_spec',
-      :collection => 'spec',
       :timeout    => 60}
-    @db = Mongo::Connection.new('localhost', nil, :pool_size => 4)
-    @queue = Mongo::Dequeue.new(@db, opts)
+    @collection = Mongo::Connection.new('localhost', nil, :pool_size => 4).db('mongo_queue_spec').collection('spec')
+    @queue = Mongo::Dequeue.new(@collection, opts)
   end
   
   before(:each) do
@@ -25,15 +23,7 @@ describe Mongo::Dequeue do
   describe "Configuration" do
 
     it "should set the connection" do
-      @queue.connection.should be(@db)
-    end
-
-    it "should allow database option" do
-      @queue.config[:database].should eql('mongo_queue_spec')
-    end
-    
-    it "should allow collection option" do
-      @queue.config[:collection].should eql('spec')
+      @queue.collection.should be(@collection)
     end
 
     it "should allow timeout option" do
@@ -42,7 +32,6 @@ describe Mongo::Dequeue do
   
     it "should have a sane set of defaults" do
       q = Mongo::Dequeue.new(nil)
-      q.config[:collection].should eql 'mongo_dequeue'
       q.config[:timeout].should    eql 300
     end
   end
@@ -162,7 +151,7 @@ describe Mongo::Dequeue do
 	    	a = insert_and_inspect("foo")
 		    m = @queue.pop
 		    m[:body].should eq "foo"
-		    @queue.send(:collection).count.should be 1  
+		    @queue.send(:collection).count.should be 1
 	    end
 	    
 	    it "should return an id" do

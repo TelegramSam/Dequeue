@@ -5,11 +5,9 @@ require 'mongo'
 # heavily inspired by https://github.com/skiz/mongo_queue
 
 class Mongo::Dequeue
-	attr_reader :connection, :config
+	attr_reader :collection, :config
 	
 	DEFAULT_CONFIG = {
-		:database   => 'mongo_dequeue',
-		:collection => 'mongo_dequeue',
 		:timeout    => 300,
 		:default_priority => 3
 	}.freeze
@@ -22,8 +20,8 @@ class Mongo::Dequeue
 	#    config = {:timeout => 90, :attempts => 2}
 	#    queue = Mongo::Queue.new(db, config)
 	#
-	def initialize(connection, opts={})
-		@connection = connection
+	def initialize(collection, opts={})
+		@collection = collection
 		@config = DEFAULT_CONFIG.merge(opts)
 	end
  
@@ -49,7 +47,7 @@ class Mongo::Dequeue
 				:body => body,
 				:inserted_at => Time.now.utc,
 				:complete => false,
-				:locked_at => nil,
+				:locked_till => nil,
 				:completed_at => nil,
 				:priority => item_opts[:priority] || @config[:default_priority],
 				:duplicate_key => dup_key
@@ -71,7 +69,7 @@ class Mongo::Dequeue
 		begin
 			timeout = opts[:timeout] || @config[:timeout]
 			cmd = BSON::OrderedHash.new
-		    cmd['findandmodify'] = @config[:collection]
+		    cmd['findandmodify'] = collection.name
 		    cmd['update']        = {'$set' => {:locked_till => Time.now.utc+timeout}} 
 		    cmd['query']         = {:complete => false, '$or'=>[{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}] }
 		    cmd['sort']          = {:priority=>-1,:inserted_at=>1}
@@ -92,7 +90,7 @@ class Mongo::Dequeue
 	# You must provide the process identifier that the document was locked with to complete it.
 	def complete(id)
 		cmd = BSON::OrderedHash.new
-		cmd['findandmodify'] = @config[:collection]
+		cmd['findandmodify'] = collection.name
 		cmd['query']         = {:_id => BSON::ObjectId.from_string(id), :complete => false}
 		cmd['update']        = {:completed_at => Time.now.utc, :complete => true}
 		cmd['limit']         = 1
@@ -113,10 +111,10 @@ class Mongo::Dequeue
 			      return db.eval(
 			      function(){
 			      	var nowutc = new Date();
-			      	var a = db.#{config[:collection]}.count({'complete': false, '$or':[{'locked_till':null},{'locked_till':{'$lt':nowutc}}] });
-			        var c = db.#{config[:collection]}.count({'complete': true});
-			        var t = db.#{config[:collection]}.count();
-			        var l = db.#{config[:collection]}.count({'complete': false, 'locked_till': {'$gte':nowutc} });
+			      	var a = db.#{collection.name}.count({'complete': false, '$or':[{'locked_till':null},{'locked_till':{'$lt':nowutc}}] });
+			        var c = db.#{collection.name}.count({'complete': true});
+			        var t = db.#{collection.name}.count();
+			        var l = db.#{collection.name}.count({'complete': false, 'locked_till': {'$gte':nowutc} });
 			        return [a, c, t, l];
 			      }
 			    );
@@ -142,8 +140,5 @@ class Mongo::Dequeue
 		result['okay'] == 0 ? nil : result['value']
 	end
 	
-	def collection #:nodoc:
-		@connection.db(@config[:database]).collection(@config[:collection])
-	end
 	
 end

@@ -14,19 +14,17 @@ Heavily inspired by Mongo::Queue https://github.com/skiz/mongo_queue
 == Examples
 
 === Setting up a queue
-Mongo::Dequeue requires a Mongo::Connection to your Mongo Server, and allows you to configure the database, 
-collection, and the default read timeout of items in your queue. Items popped from the queue must be confirmed
-complete, or they will be reissued after the timeout specified.
+Mongo::Dequeue requires a Mongo::Collection, and allows you to configure the default read timeout of items in your queue. 
+Items popped from the queue must be confirmed complete, or they will be reissued after the timeout specified.
 
-    db = Mongo::Connection.new
+    mc = Mongo::Connection.new
+    collection = mc.db("whateverdb").collection("my_queue")
 
     options   = {
-      :database   => 'whateverdb',
-      :collection => 'my_queue',
       :timeout    => 60
     }
 
-    queue = Mongo::Dequeue.new(db, options)
+    queue = Mongo::Dequeue.new(collection, options)
 
 === Pushing Items
 Items have a body, passed as the first argument to push(). A body can be a string, number, hash, or array. These 
