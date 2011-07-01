@@ -92,7 +92,7 @@ class Mongo::Dequeue
 		cmd = BSON::OrderedHash.new
 		cmd['findandmodify'] = collection.name
 		cmd['query']         = {:_id => BSON::ObjectId.from_string(id), :complete => false}
-		cmd['update']        = {:completed_at => Time.now.utc, :complete => true}
+		cmd['update']        = {'$set' => {:completed_at => Time.now.utc, :complete => true} }
 		cmd['limit']         = 1
 		collection.db.command(cmd)
 	end
