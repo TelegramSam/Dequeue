@@ -85,16 +85,20 @@ class Mongo::Dequeue
 	    }
 	end
 	
-	
 	# Remove the document from the queue. This should be called when the work is done and the document is no longer needed.
 	# You must provide the process identifier that the document was locked with to complete it.
 	def complete(id)
-		cmd = BSON::OrderedHash.new
-		cmd['findandmodify'] = collection.name
-		cmd['query']         = {:_id => BSON::ObjectId.from_string(id), :complete => false}
-		cmd['update']        = {'$set' => {:completed_at => Time.now.utc, :complete => true} }
-		cmd['limit']         = 1
-		collection.db.command(cmd)
+		begin
+			cmd = BSON::OrderedHash.new
+			cmd['findandmodify'] = collection.name
+			cmd['query']         = {:_id => BSON::ObjectId.from_string(id), :complete => false}
+			cmd['update']        = {'$set' => {:completed_at => Time.now.utc, :complete => true} }
+			cmd['limit']         = 1
+			collection.db.command(cmd)
+		rescue Mongo::OperationFailure => of
+			#opfailure happens when item has been already completed
+			return nil
+		end
 	end
 	
 	# Removes completed job history
