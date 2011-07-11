@@ -203,6 +203,19 @@ describe Mongo::Dequeue do
 	    end
 	    
 	end
+	
+	describe "Peek" do
+		it "should peek properly" do
+			@a = insert_and_inspect("a")
+			@b = insert_and_inspect("b")
+			
+			@peek = []
+			p = @queue.peek
+			p.each{|q| @peek << q }
+			
+			@peek.length.should == 2
+		end
+	end
 
 	describe "Stats" do
 	    before(:all) do

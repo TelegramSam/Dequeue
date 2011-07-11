@@ -137,6 +137,16 @@ class Mongo::Dequeue
 		return Digest::MD5.hexdigest(body.to_json) #won't ever match a duplicate. Need a better way to handle hashes and arrays.
 	end
 	
+	def peek
+		firstfew = collection.find({
+				:complete => false, 
+				'$or'=>[{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}]
+			}, 
+			:sort => [[:priority, :descending],[:inserted_at, :ascending]], 
+			:limit => 10)
+		return firstfew
+	end
+	
 	
 	protected
 	
