@@ -136,7 +136,7 @@ class Mongo::Dequeue
 		  :complete => complete.to_i,
 		  :available => available.to_i,
 		  :total     => total.to_i,
-		  :redundantcompletes => redundant_completes.to_i
+		  :redundantcompletes => redundant_completes
 		}
 	end
 	
