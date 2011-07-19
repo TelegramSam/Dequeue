@@ -50,7 +50,8 @@ class Mongo::Dequeue
 				:locked_till => nil,
 				:completed_at => nil,
 				:priority => item_opts[:priority] || @config[:default_priority],
-				:duplicate_key => dup_key
+				:duplicate_key => dup_key,
+				:completecount => 0
 			},
 			'$inc' => {:count => 1 }
 		}
@@ -91,8 +92,8 @@ class Mongo::Dequeue
 		begin
 			cmd = BSON::OrderedHash.new
 			cmd['findandmodify'] = collection.name
-			cmd['query']         = {:_id => BSON::ObjectId.from_string(id), :complete => false}
-			cmd['update']        = {'$set' => {:completed_at => Time.now.utc, :complete => true} }
+			cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
+			cmd['update']        = {'$set' => {:completed_at => Time.now.utc, :complete => true}, '$inc' => {:completecount => 1} }
 			cmd['limit']         = 1
 			collection.db.command(cmd)
 		rescue Mongo::OperationFailure => of
@@ -119,15 +120,24 @@ class Mongo::Dequeue
 			        var c = db.#{collection.name}.count({'complete': true});
 			        var t = db.#{collection.name}.count();
 			        var l = db.#{collection.name}.count({'complete': false, 'locked_till': {'$gte':nowutc} });
-			        return [a, c, t, l];
+			        var rc = db.#{collection.name}.group({
+			        	'key': {},
+			        	'cond': {'complete':true},
+			        	'$reduce': function(obj, prev){prev.count += (obj.completecount - 1);},
+			        	'initial': {count: 0}
+			        });
+			        
+			        return [a, c, t, l, rc[0] ? rc[0].count : 0];
 			      }
 			    );
 			  }"
-		available, complete, total, locked = collection.db.eval(js) 
+		available, complete, total, locked, redundant_completes = collection.db.eval(js) 
 		{ :locked    => locked.to_i,
 		  :complete => complete.to_i,
 		  :available => available.to_i,
-		  :total     => total.to_i }
+		  :total     => total.to_i,
+		  :redundantcompletes => redundant_completes.to_i
+		}
 	end
 	
 	def self.generate_duplicate_key(body)

@@ -216,10 +216,46 @@ describe Mongo::Dequeue do
 			@peek.length.should == 2
 		end
 	end
+	
+	describe "Completing" do
+	    before(:all) do
+	       @a = insert_and_inspect("a")
+	       @b = insert_and_inspect("b")
+	       @c = insert_and_inspect("c")
+
+	       
+	       @ap = @queue.pop
+	       @queue.complete(@ap[:id])
+			@ac = @queue.send(:collection).find_one({:_id => BSON::ObjectId.from_string(@ap[:id])})
+	       
+	       @bp = @queue.pop
+	       @bc = @queue.send(:collection).find_one({:_id => BSON::ObjectId.from_string(@bp[:id])})
+	       
+	       @cp = @queue.pop
+   	       @queue.complete(@cp[:id])
+   	       @queue.complete(@cp[:id])
+   	       @queue.complete(@cp[:id])
+   	       @cc = @queue.send(:collection).find_one({:_id => BSON::ObjectId.from_string(@cp[:id])})
+   	       @stats = @queue.stats
+
+	    end
+		it "should count a single completion" do
+			@ac["completecount"].should eq 1
+			
+		end
+		it "should report zero for uncompleted items" do
+			@bc["completecount"].should eq 0
+		end
+		it "should count a single completion" do
+			@cc["completecount"].should eq 3
+		end
+		it "should report stats correctly" do
+			 @stats[:redundantcompletes].should == 2
+		end
+	end
 
 	describe "Stats" do
 	    before(:all) do
-	       @queue.flush!
 	       @a = insert_and_inspect("a")
 
 	       @b = insert_and_inspect("b")
@@ -249,6 +285,9 @@ describe Mongo::Dequeue do
 	    end
 	    it "should count locked" do
 	    	@stats[:locked].should == 1
+	    end
+	    it "should count redundant completes" do
+	    	@stats[:redundantcompletes].should == 0
 	    end
 
 	    
