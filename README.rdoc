@@ -45,6 +45,20 @@ queue items. There are no keys or reserved values in the body of an item. Pass i
     body = ["a", "b", "c"]
 
     queue.push(body,options)
+    
+=== Batch Pushing
+When you need to push more then a few items, the delay of network requests can start to add up. In these cases, you can
+add more then a single item with a single call, like so:
+
+    
+    queue.batchpush("foo")
+    queue.batchpush("bar")
+    
+To perform the actual push, call the batchprocess method:
+
+    queue.batchprocess()
+    
+
 
 === Popping Items
 Pop items with the pop() method. Specifying a timeout (in seconds) will override the default timeout set in 
