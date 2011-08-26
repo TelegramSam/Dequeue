@@ -37,7 +37,7 @@ describe Mongo::Dequeue do
   end
   
   describe "Inserting a standard Job" do
-    before(:each) do
+    before(:all) do
        @item = insert_and_inspect({:message => 'MongoQueueSpec', :foo => 5})
     end
     
@@ -70,6 +70,26 @@ describe Mongo::Dequeue do
       @item['body']['foo'].should be(5)
     end
   end
+  
+  describe "bulk inserting multiple jobs" do
+  	before(:all) do
+       @queue.batchpush({:message => 'MongoQueueSpec1', :foo => 5})
+       @queue.batchpush({:message => 'MongoQueueSpec2', :foo => 5})
+       @queue.batchpush({:message => 'MongoQueueSpec3', :foo => 5})
+    end
+    
+    it "should correctly count items in batch" do
+    	@queue.batch.length.should be(3)
+    end
+    
+    it "should correctly add items on process" do
+    	@queue.batchprocess()
+    	@queue.send(:collection).count.should == 3
+    	@queue.batch.length.should == 0
+    end
+    
+  end
+  
 
 	describe "Inserting different body types" do
 	    before(:each) do
@@ -261,7 +281,7 @@ describe Mongo::Dequeue do
 	       @b = insert_and_inspect("b")
 	       @c = insert_and_inspect("c")
 	       @d = insert_and_inspect("d")
-	       @e = insert_and_inspect("e")
+	       @e = insert_and_inspect({:task => "foo"})
 	       
 	       @ap = @queue.pop(:timeout => 1)
 	       @bp = @queue.pop
@@ -288,6 +308,17 @@ describe Mongo::Dequeue do
 	    end
 	    it "should count redundant completes" do
 	    	@stats[:redundantcompletes].should == 0
+	    end
+	    it "should count priorities" do
+	    	#pp @stats[:priority]
+	    	@stats[:priority].should == [{"priority"=>3.0, "complete"=>1.0, "waiting"=>4.0}]
+	    end
+	    it "should count tasks" do
+	    	#pp @stats[:tasks]
+	    	 @stats[:tasks].should == [
+	    	 		{"body.task"=>nil, "complete"=>1.0, "waiting"=>3.0},
+ 					{"body.task"=>"foo", "complete"=>0.0, "waiting"=>1.0}
+ 				]
 	    end
 
 	    
