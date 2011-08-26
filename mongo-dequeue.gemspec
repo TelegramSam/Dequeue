@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{mongo-dequeue}
-  s.version = "0.4.1"
+  s.version = "0.5.0"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["TelegramSam"]
-  s.date = %q{2011-07-19}
+  s.date = %q{2011-08-26}
   s.description = %q{A de-duplicating priority queue that uses mongodb as the storage engine.}
   s.email = %q{telegramsam@gmail.com}
   s.extra_rdoc_files = [
