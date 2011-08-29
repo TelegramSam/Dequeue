@@ -104,6 +104,7 @@ class Mongo::Dequeue
         cmd = BSON::OrderedHash.new
         cmd['$eval'] = js
         cmd['args'] = [@batch]
+        cmd['nolock'] = true
 		result = collection.db.command(cmd)
 		@batch.clear
 		#pp result
@@ -210,7 +211,14 @@ class Mongo::Dequeue
 		#'initial': {complete: 0, waiting:0}
 		#});
 
-		available, complete, total, locked, redundant_completes, priority, tasks = collection.db.eval(js)
+		cmd = BSON::OrderedHash.new
+        cmd['$eval'] = js
+        cmd['nolock'] = true
+
+		available, complete, total, locked, redundant_completes, priority, tasks =  collection.db.command(cmd)['retval']
+
+		#available, complete, total, locked, redundant_completes, priority, tasks = collection.db.eval(js)
+		
 		{ :locked    => locked.to_i,
 			:complete => complete.to_i,
 			:available => available.to_i,

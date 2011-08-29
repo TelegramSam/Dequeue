@@ -292,6 +292,7 @@ describe Mongo::Dequeue do
 	       @queue.complete(@bp[:id])
 	       
 	       @stats = @queue.stats
+
 	    end
 	    #locked, complete, available, total
 	    it "should count complete" do
