@@ -257,16 +257,64 @@ describe Mongo::Dequeue do
   end
 
   describe "Peek" do
-    it "should peek properly" do
-      @a = insert_and_inspect("a")
-      @b = insert_and_inspect("b")
+    it "should not remove items from the queue" do
+      expected = %w(a b c d)
 
-      @peek = []
-      p = @queue.peek
-      p.each{|q| @peek << q }
+      expected.each do |item|
+        @queue.push item
+      end
 
-      @peek.length.should == 2
+      2.times do
+        actual = @queue.peek.map{|i| i["body"]}
+        actual.should eq expected
+      end
     end
+
+    describe 'all the items have the same priority' do
+      it "should act as a FIFO queue" do
+        expected = %w(a b c d)
+
+        expected.each do |item|
+          @queue.push item
+        end
+        actual = @queue.peek.map{|i| i["body"]}
+        actual.should eq expected
+      end
+    end
+
+    describe 'items have different priority' do
+     it "should return items with higher priority first" do
+       p3       = 'priority 3'
+       p2       = 'priority 2'
+       p1       = 'priority 1'
+       expected = [p3, p2, p1]
+
+       @queue.push p1, {:priority => 1}
+       @queue.push p3, {:priority => 3}
+       @queue.push p2, {:priority => 2}
+
+       actual = @queue.peek.map{|i| i["body"]}
+       actual.should eq expected
+     end
+
+     it "should sort by priority and then by insertion" do
+       p1       = 'priority 1'
+       p3       = 'priority 3'
+       p2_first = 'priority 2 - first insert'
+       p2_last  = 'priority 2 - last insert'
+       expected = [p3, p2_first, p2_last, p1]
+
+       @queue.push p1, {:priority => 1}
+       @queue.push p2_first, {:priority => 2}
+       @queue.push p3, {:priority => 3}
+       @queue.push p2_last, {:priority => 2}
+
+       actual = @queue.peek.map{|i| i["body"]}
+       actual.should eq expected
+     end
+
+    end
+
   end
 
   describe "Completing" do
