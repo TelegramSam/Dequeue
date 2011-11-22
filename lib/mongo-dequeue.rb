@@ -32,7 +32,9 @@ class Mongo::Dequeue
 	end
 
 	# Insert a new item into the queue.
-	#
+  # Valid options:
+  #   - :priority: integer value, 3 by default.
+  #   - :duplicate_key
 	# Example:
 	#    queue.insert(:name => 'Billy', :email => 'billy@example.com', :message => 'Here is the thing you asked for')
 	def push(body, item_opts = {})
@@ -119,13 +121,19 @@ class Mongo::Dequeue
 
 	def pop(opts = {})
     timeout = opts[:timeout] || @config[:timeout]
+
     cmd = BSON::OrderedHash.new
     cmd['findandmodify'] = collection.name
     cmd['update']        = {'$set' => {:locked_till => Time.now.utc+timeout}}
     cmd['query']         = {:complete => false, '$or'=>[{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}] }
-    cmd['sort']          = {:priority=>-1,:inserted_at=>1}
     cmd['limit']         = 1
     cmd['new']           = true
+
+    sort_directive               = BSON::OrderedHash.new
+    sort_directive[:priority]    = Mongo::DESCENDING
+    sort_directive[:inserted_at] = Mongo::ASCENDING
+    cmd['sort']                  = sort_directive
+
     result = collection.db.command(cmd)
     if result['value']
       { :body => result['value']['body'],

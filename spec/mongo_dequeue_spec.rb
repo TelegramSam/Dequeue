@@ -205,21 +205,53 @@ describe Mongo::Dequeue do
       @queue.send(:collection).count.should be 1
     end
 
-    it "should pop in order" do
-      @a = insert_and_inspect("a")
-      @b = insert_and_inspect("b")
-      @c = insert_and_inspect("c")
-      @d = insert_and_inspect("d")
+    describe 'all the items have the same priority' do
+      it "should be a standard FIFO queue" do
+        items = %w(a b c d)
 
-      @ap = @queue.pop
-      @bp = @queue.pop
-      @cp = @queue.pop
-      @dp = @queue.pop
+        items.each do |item|
+          @queue.push item
+        end
 
-      @ap[:body].should eq "a"
-      @bp[:body].should eq "b"
-      @cp[:body].should eq "c"
-      @dp[:body].should eq "d"
+        items.each do |expected|
+          actual = @queue.pop
+          actual[:body].should eq expected
+        end
+      end
+    end
+
+    describe 'items have different priority' do
+      it "should return items with higher priority first" do
+        p3 = 'priority 3'
+        p2 = 'priority 2'
+        p1 = 'priority 1'
+
+        @queue.push p1, {:priority => 1}
+        @queue.push p3, {:priority => 3}
+        @queue.push p2, {:priority => 2}
+
+        @queue.pop[:body].should eq p3
+        @queue.pop[:body].should eq p2
+        @queue.pop[:body].should eq p1
+      end
+
+      it "should sort by priority and then by insertion" do
+        p1       = 'priority 1'
+        p3       = 'priority 3'
+        p2_first = 'priority 2 - first insert'
+        p2_last  = 'priority 2 - last insert'
+
+        @queue.push p1, {:priority => 1}
+        @queue.push p2_first, {:priority => 2}
+        @queue.push p3, {:priority => 3}
+        @queue.push p2_last, {:priority => 2}
+
+        @queue.pop[:body].should eq p3
+        @queue.pop[:body].should eq p2_first
+        @queue.pop[:body].should eq p2_last
+        @queue.pop[:body].should eq p1
+      end
+
     end
 
   end
@@ -324,6 +356,5 @@ describe Mongo::Dequeue do
 
 
   end
-
 
 end
