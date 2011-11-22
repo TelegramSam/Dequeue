@@ -118,24 +118,24 @@ class Mongo::Dequeue
 	# {:body=>"foo", :id=>"4e039c372b70275e345206e4"}
 
 	def pop(opts = {})
-		begin
-			timeout = opts[:timeout] || @config[:timeout]
-			cmd = BSON::OrderedHash.new
-			cmd['findandmodify'] = collection.name
-			cmd['update']        = {'$set' => {:locked_till => Time.now.utc+timeout}}
-			cmd['query']         = {:complete => false, '$or'=>[{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}] }
-			cmd['sort']          = {:priority=>-1,:inserted_at=>1}
-			cmd['limit']         = 1
-			cmd['new']           = true
-			result = collection.db.command(cmd)
-		rescue Mongo::OperationFailure => of
-		return nil
-		end
-		return {
-			:body => result['value']['body'],
-			:id => result['value']['_id'].to_s
-		}
-	end
+    timeout = opts[:timeout] || @config[:timeout]
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['update']        = {'$set' => {:locked_till => Time.now.utc+timeout}}
+    cmd['query']         = {:complete => false, '$or'=>[{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}] }
+    cmd['sort']          = {:priority=>-1,:inserted_at=>1}
+    cmd['limit']         = 1
+    cmd['new']           = true
+    result = collection.db.command(cmd)
+    if result['value']
+      { :body => result['value']['body'],
+        :id => result['value']['_id'].to_s }
+    else
+      nil
+    end
+  rescue Mongo::OperationFailure => of
+    nil
+  end
 
 	# Remove the document from the queue. This should be called when the work is done and the document is no longer needed.
 	# You must provide the process identifier that the document was locked with to complete it.
