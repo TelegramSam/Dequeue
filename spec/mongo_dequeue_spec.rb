@@ -196,13 +196,24 @@ describe Mongo::Dequeue do
       @queue.send(:collection).count.should be 1
     end
 
-    it "should pop again after timeout" do
-      a = insert_and_inspect("foo")
-      m = @queue.pop(:timeout => 1)
-      sleep(2)
-      m2 = @queue.pop
-      m2[:id].should eq m[:id]
-      @queue.send(:collection).count.should be 1
+    it "should consider the timeout value" do
+      time    = Time.now
+      timeout = 120
+      item_id = nil
+
+      Timecop.freeze time do
+        @queue.push 'test item', {:timeout => timeout}
+        item_id = @queue.pop[:id]
+      end
+
+      Timecop.freeze(time + 10) do
+        @queue.pop.should eq nil
+      end
+
+      Timecop.freeze(time + timeout + 10) do
+        actual = @queue.pop
+        actual[:id].should eq item_id
+      end
     end
 
     describe 'all the items have the same priority' do
@@ -270,6 +281,28 @@ describe Mongo::Dequeue do
       end
     end
 
+    it "should consider the timeout value" do
+      time    = Time.now
+      timeout = 120
+      item_id = nil
+
+      Timecop.freeze time do
+        @queue.push 'test item', {:timeout => timeout}
+        item_id = @queue.pop[:id]
+      end
+
+      Timecop.freeze(time + 10) do
+        @queue.pop.should eq nil
+        @queue.peek.count.should eq 0
+      end
+
+      Timecop.freeze(time + timeout + 10) do
+        actual = @queue.peek.first
+        actual['_id'].to_s.should eq item_id
+      end
+
+    end
+
     describe 'all the items have the same priority' do
       it "should act as a FIFO queue" do
         expected = %w(a b c d)
@@ -312,7 +345,6 @@ describe Mongo::Dequeue do
        actual = @queue.peek.map{|i| i["body"]}
        actual.should eq expected
      end
-
     end
 
   end

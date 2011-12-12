@@ -24,6 +24,7 @@ GEM
       diff-lcs (~> 1.1.2)
     rspec-mocks (2.7.0)
     shoulda (2.11.3)
+    timecop (0.3.5)
 
 PLATFORMS
   ruby
@@ -37,3 +38,4 @@ DEPENDENCIES
   rdoc
   rspec (>= 2)
   shoulda
+  timecop

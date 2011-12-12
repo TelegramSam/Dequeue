@@ -4,3 +4,4 @@ $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
 require 'rubygems'
 require 'mongo'
 require 'mongo-dequeue'
+require 'timecop'

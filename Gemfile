@@ -13,4 +13,5 @@ group :development do
   gem 'rdoc'
   gem "rcov", ">= 0"
   gem 'rspec', ">= 2"
+  gem 'timecop'
 end
