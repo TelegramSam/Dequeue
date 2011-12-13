@@ -212,6 +212,7 @@ describe Mongo::Dequeue do
 
       Timecop.freeze(time + timeout + 10) do
         actual = @queue.pop
+        actual.should_not be_nil
         actual[:id].should eq item_id
       end
     end
@@ -298,6 +299,7 @@ describe Mongo::Dequeue do
 
       Timecop.freeze(time + timeout + 10) do
         actual = @queue.peek.first
+        actual.should_not be_nil
         actual['_id'].to_s.should eq item_id
       end
 
@@ -434,7 +436,6 @@ describe Mongo::Dequeue do
       ]
     end
 
-
   end
 
   describe "disable item timeout" do
@@ -445,9 +446,10 @@ describe Mongo::Dequeue do
     end
 
     it "should work with pop" do
-      @queue.push "hello world"
+      expected = "hello world"
+      @queue.push expected
       item = @queue.pop
-      item.should_not be_nil 
+      item[:body].should eq expected
 
       Timecop.travel(Time.local(Time.now.year + 10)) do
         actual = @queue.pop
@@ -456,10 +458,11 @@ describe Mongo::Dequeue do
     end
 
     it "should work with peek" do
-      @queue.push "hello world"
+      expected = "hello world"
+      @queue.push expected
       item = @queue.pop
-      item.should_not be_nil 
-
+      item[:body].should eq expected
+      
       Timecop.travel(Time.local(Time.now.year + 10)) do
         actual = @queue.peek
         actual.count.should eq 0

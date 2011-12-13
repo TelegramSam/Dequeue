@@ -50,6 +50,7 @@ class Mongo::Dequeue
 				:body => body,
 				:inserted_at => Time.now.utc,
 				:complete => false,
+        :locked => false,
 				:locked_till => nil,
 				:completed_at => nil,
 				:priority => item_opts[:priority] || @config[:default_priority],
@@ -89,6 +90,7 @@ class Mongo::Dequeue
 							'body': e.body,
 							'inserted_at': nowutc,
 							'complete': false,
+              'locked' : false,
 							'locked_till': null,
 							'completed_at': null,
 							'priority': e.priority,
@@ -125,11 +127,14 @@ class Mongo::Dequeue
     cmd = BSON::OrderedHash.new
     cmd['findandmodify'] = collection.name
     if timeout
-      cmd['update'] = {'$set' => {:locked_till => Time.now.utc+timeout}}
-      cmd['query']  = {:complete => false, '$or'=>[{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}] }
+      cmd['update'] = {'$set' => {:locked_till => Time.now.utc+timeout, :locked => true}}
+      cmd['query']  = {:complete => false,
+                       '$or'=>[ {:locked => false},
+                                {:locked_till=> nil},
+                                {:locked_till=>{'$lt'=>Time.now.utc}}] }
     else
-      cmd['update'] = {}
-      cmd['query'] = {:complete => false }
+      cmd['update'] = { '$set' => {:locked => true} }
+      cmd['query']  = { :complete => false, :locked => false }
     end
     cmd['limit'] = 1
     cmd['new']   = true
@@ -140,6 +145,7 @@ class Mongo::Dequeue
     cmd['sort']                  = sort_directive
 
     result = collection.db.command(cmd)
+
     if result['value']
       { :body => result['value']['body'],
         :id => result['value']['_id'].to_s }
@@ -180,10 +186,10 @@ class Mongo::Dequeue
 			      return db.eval(
 			      function(){
 			      	var nowutc = new Date();
-			      	var a = db.#{collection.name}.count({'complete': false, '$or':[{'locked_till':null},{'locked_till':{'$lt':nowutc}}] });
+			      	var a = db.#{collection.name}.count({'complete': false, '$or':[{'locked' : false}, {'locked_till':null},{'locked_till':{'$lt':nowutc}}] });
 			        var c = db.#{collection.name}.count({'complete': true});
 			        var t = db.#{collection.name}.count();
-			        var l = db.#{collection.name}.count({'complete': false, 'locked_till': {'$gte':nowutc} });
+			        var l = db.#{collection.name}.count({'complete': false, 'locked' : true, 'locked_till': {'$gte':nowutc} });
 			        var rc = db.#{collection.name}.group({
 			        	'key': {},
 			        	'cond': {'complete':true},
@@ -251,10 +257,14 @@ class Mongo::Dequeue
 
   def peek(opts = {})
     timeout = opts[:timeout] || @config[:timeout]
-    query = {:complete => false}
+    query = {:complete => false, }
 
     if timeout
-      query['$or'] = [{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}]
+      query['$or'] = [ {:locked => false},
+                       {:locked_till=> nil},
+                       {:locked_till=>{'$lt'=>Time.now.utc}}]
+    else
+      query = {:locked => false}
     end
 
     collection.find( query, 
