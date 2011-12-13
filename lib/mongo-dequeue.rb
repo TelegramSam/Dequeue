@@ -124,10 +124,15 @@ class Mongo::Dequeue
 
     cmd = BSON::OrderedHash.new
     cmd['findandmodify'] = collection.name
-    cmd['update']        = {'$set' => {:locked_till => Time.now.utc+timeout}}
-    cmd['query']         = {:complete => false, '$or'=>[{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}] }
-    cmd['limit']         = 1
-    cmd['new']           = true
+    if timeout
+      cmd['update'] = {'$set' => {:locked_till => Time.now.utc+timeout}}
+      cmd['query']  = {:complete => false, '$or'=>[{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}] }
+    else
+      cmd['update'] = {}
+      cmd['query'] = {:complete => false }
+    end
+    cmd['limit'] = 1
+    cmd['new']   = true
 
     sort_directive               = BSON::OrderedHash.new
     sort_directive[:priority]    = Mongo::DESCENDING
@@ -244,15 +249,18 @@ class Mongo::Dequeue
 		return Digest::MD5.hexdigest(body.to_json) #won't ever match a duplicate. Need a better way to handle hashes and arrays.
 	end
 
-	def peek
-		firstfew = collection.find({
-			:complete => false,
-			'$or'=>[{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}]
-		},
-		:sort => [[:priority, :descending],[:inserted_at, :ascending]],
-		:limit => 10)
-		return firstfew
-	end
+  def peek(opts = {})
+    timeout = opts[:timeout] || @config[:timeout]
+    query = {:complete => false}
+
+    if timeout
+      query['$or'] = [{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}]
+    end
+
+    collection.find( query, 
+                    :sort => [[:priority, :descending],[:inserted_at, :ascending]],
+                    :limit => 10)
+  end
 
 	protected
 

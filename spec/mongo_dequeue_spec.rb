@@ -437,4 +437,35 @@ describe Mongo::Dequeue do
 
   end
 
+  describe "disable item timeout" do
+    before(:each) do
+      opts = {:timeout => nil}
+      @queue = Mongo::Dequeue.new(@collection, opts)
+      @queue.flush!
+    end
+
+    it "should work with pop" do
+      @queue.push "hello world"
+      item = @queue.pop
+      item.should_not be_nil 
+
+      Timecop.travel(Time.local(Time.now.year + 10)) do
+        actual = @queue.pop
+        actual.should be_nil
+      end
+    end
+
+    it "should work with peek" do
+      @queue.push "hello world"
+      item = @queue.pop
+      item.should_not be_nil 
+
+      Timecop.travel(Time.local(Time.now.year + 10)) do
+        actual = @queue.peek
+        actual.count.should eq 0
+      end
+    end
+
+  end
+
 end
