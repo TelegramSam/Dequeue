@@ -5,7 +5,7 @@ describe Mongo::Dequeue do
 
   def insert_and_inspect(body, options={})
     @queue.push(body,options)
-    @queue.send(:collection).find_one  
+    @queue.send(:collection).find_one
   end
 
 
@@ -263,12 +263,6 @@ describe Mongo::Dequeue do
         @queue.pop[:body].should eq p1
       end
 
-      it "should support changing priority" do
-        item = insert_and_inspect("Test")
-        @queue.push item, {:priority => 1}
-        @queue.increase_priority item['_id']
-        @queue.pop[:priority].should eq 2
-      end
     end
 
   end
@@ -467,11 +461,109 @@ describe Mongo::Dequeue do
       @queue.push expected
       item = @queue.pop
       item[:body].should eq expected
-      
+
       Timecop.travel(Time.local(Time.now.year + 10)) do
         actual = @queue.peek
         actual.count.should eq 0
       end
+    end
+
+  end
+
+  describe "changing item priority" do
+    describe "set a custom value" do
+      it "work as expected" do
+        expected_priority = 3
+        item              = insert_and_inspect("Test", {:priority => 1})
+
+        @queue.change_item_priority item['_id'], expected_priority
+
+        item = @queue.send(:collection).find_one
+        item["priority"].should eq expected_priority
+      end
+
+      it "should not complain if item is not found" do
+        item = insert_and_inspect("Test", {:priority => 2})
+        id = item['_id']
+
+        @queue.send(:collection).remove('_id' => id)
+        @queue.stats[:total].should eq 0
+
+        lambda do
+          @queue.change_item_priority(item['_id'], 1)
+        end.should_not raise_error
+      end
+
+    end
+
+    describe "increase the priority by steps" do
+      it "should use 1 as default step value" do
+        expected_priority = 3
+        item              = insert_and_inspect("Test", {:priority => 2})
+
+        @queue.increase_item_priority item['_id']
+
+        item = @queue.send(:collection).find_one
+        item["priority"].should eq expected_priority
+      end
+
+      it "should allow custom values for step" do
+        expected_priority = 4
+        item              = insert_and_inspect("Test", {:priority => 2})
+
+        @queue.increase_item_priority item['_id'], 2
+
+        item = @queue.send(:collection).find_one
+        item["priority"].should eq expected_priority
+      end
+
+      it "should not complain if item is not found" do
+        item = insert_and_inspect("Test", {:priority => 2})
+        id = item['_id']
+
+        @queue.send(:collection).remove('_id' => id)
+        @queue.stats[:total].should eq 0
+
+        lambda do
+          @queue.increase_item_priority(item['_id'])
+        end.should_not raise_error
+      end
+
+    end
+
+    describe "decrease the priority by steps" do
+      it "should use 1 as default step value" do
+        expected_priority = 1
+        item              = insert_and_inspect("Test", {:priority => 2})
+
+        @queue.decrease_item_priority item['_id']
+
+        item = @queue.send(:collection).find_one
+        item["priority"].should eq expected_priority
+      end
+
+      it "should allow custom values for step" do
+        expected_priority = 2
+        item              = insert_and_inspect("Test", {:priority => 4})
+
+        @queue.decrease_item_priority item['_id'], 2
+
+        item = @queue.send(:collection).find_one
+        item["priority"].should eq expected_priority
+      end
+
+      it "should not complain if item is not found" do
+        item = insert_and_inspect("Test", {:priority => 2})
+        id = item['_id']
+
+        @queue.send(:collection).remove('_id' => id)
+        @queue.stats[:total].should eq 0
+
+        lambda do
+          @queue.decrease_item_priority(item['_id'])
+        end.should_not raise_error
+      end
+
     end
 
   end

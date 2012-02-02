@@ -26,14 +26,6 @@ class Mongo::Dequeue
 		@batch = []
 	end
 
-  def increase_priority obj_id
-    item = collection.find({"body"=>BSON::ObjectId(obj_id)}).first
-    item["priority"] += 1
-   
-     # TODO it would be nice to increase the value in a single DB call
-    collection.update({"body"=>BSON::ObjectId(obj_id)}, item)
-  end
-
 	# Remove all items from the queue. Use with caution!
 	def flush!
 		collection.drop
@@ -278,6 +270,36 @@ class Mongo::Dequeue
     collection.find( query, 
                     :sort => [[:priority, :descending],[:inserted_at, :ascending]],
                     :limit => 10)
+  end
+
+  # Set the priority of an item to a custom value
+  def change_item_priority obj_id, priority
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['update']        = { '$set' => { :priority => priority } }
+    cmd['query']         = { '_id' => obj_id }
+
+    collection.db.command(cmd)
+  end
+
+  # Increase the priority of an item by a given value
+  def increase_item_priority obj_id, step=1
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['update']        = { '$inc' => { :priority => step } }
+    cmd['query']         = { '_id' => obj_id }
+
+    collection.db.command(cmd)
+  end
+
+  # Decrease the priority of an item by a given value
+  def decrease_item_priority obj_id, step=1
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['update']        = { '$inc' => { :priority => - step } }
+    cmd['query']         = { '_id' => obj_id }
+
+    collection.db.command(cmd)
   end
 
 	protected
