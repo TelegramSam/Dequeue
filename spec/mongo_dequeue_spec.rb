@@ -90,7 +90,6 @@ describe Mongo::Dequeue do
 
   end
 
-
   describe "Inserting different body types" do
     before(:each) do
       @queue.flush!
@@ -264,6 +263,12 @@ describe Mongo::Dequeue do
         @queue.pop[:body].should eq p1
       end
 
+      it "should support changing priority" do
+        item = insert_and_inspect("Test")
+        @queue.push item, {:priority => 1}
+        @queue.increase_priority item['_id']
+        @queue.pop[:priority].should eq 2
+      end
     end
 
   end
