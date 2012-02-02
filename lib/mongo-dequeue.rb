@@ -26,6 +26,14 @@ class Mongo::Dequeue
 		@batch = []
 	end
 
+  def increase_priority obj_id
+    item = collection.find({"body"=>BSON::ObjectId(obj_id)}).first
+    item["priority"] += 1
+   
+     # TODO it would be nice to increase the value in a single DB call
+    collection.update({"body"=>BSON::ObjectId(obj_id)}, item)
+  end
+
 	# Remove all items from the queue. Use with caution!
 	def flush!
 		collection.drop
