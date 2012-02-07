@@ -277,7 +277,7 @@ class Mongo::Dequeue
     cmd = BSON::OrderedHash.new
     cmd['findandmodify'] = collection.name
     cmd['update']        = { '$set' => { :priority => priority } }
-    cmd['query']         = { 'body' => BSON::ObjectId(obj_id) }
+    cmd['query']         = { '_id' => obj_id }
 
     collection.db.command(cmd)
   end
@@ -287,7 +287,7 @@ class Mongo::Dequeue
     cmd = BSON::OrderedHash.new
     cmd['findandmodify'] = collection.name
     cmd['update']        = { '$inc' => { :priority => step } }
-    cmd['query']         = { 'body' => BSON::ObjectId(obj_id) }
+    cmd['query']         = { '_id' => obj_id }
 
     collection.db.command(cmd)
   end
@@ -297,7 +297,7 @@ class Mongo::Dequeue
     cmd = BSON::OrderedHash.new
     cmd['findandmodify'] = collection.name
     cmd['update']        = { '$inc' => { :priority => - step } }
-    cmd['query']         = { 'body' => BSON::ObjectId(obj_id) }
+    cmd['query']         = { '_id' => obj_id }
 
     collection.db.command(cmd)
   end
