@@ -25,14 +25,6 @@ Gem::Specification.new do |s|
     "VERSION",
     "lib/mongo-dequeue.rb",
     "mongo-dequeue.gemspec",
-    "pkg/mongo-dequeue-0.1.0.gem",
-    "pkg/mongo-dequeue-0.2.0.gem",
-    "pkg/mongo-dequeue-0.2.1.gem",
-    "pkg/mongo-dequeue-0.3.0.gem",
-    "pkg/mongo-dequeue-0.4.0.gem",
-    "pkg/mongo-dequeue-0.4.1.gem",
-    "pkg/mongo-dequeue-0.5.0.gem",
-    "pkg/mongo-dequeue-0.5.1.gem",
     "spec/mongo_dequeue_spec.rb",
     "spec/spec_helper.rb"
   ]
