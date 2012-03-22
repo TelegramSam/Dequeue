@@ -156,6 +156,19 @@ class Mongo::Dequeue
     nil
   end
 
+  # "Re-add" the document to the queue
+  def unlock(id)
+    begin
+      cmd = BSON::OrderedHash.new
+      cmd['findandmodify'] = collection.name
+      cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
+      cmd['update']        = {'$set' => {:locked => false, :locked_till => nil}}
+      collection.db.command(cmd)
+    rescue Mongo::OperationFailure => of
+      nil
+    end
+  end
+
 	# Remove the document from the queue. This should be called when the work is done and the document is no longer needed.
 	# You must provide the process identifier that the document was locked with to complete it.
 	def complete(id)

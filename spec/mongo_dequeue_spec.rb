@@ -173,6 +173,15 @@ describe Mongo::Dequeue do
       @queue.send(:collection).count.should be 1
     end
 
+    it "should unlock a queue item" do
+      body = "Unlock Me"
+      @queue.push body, {:priority => 1}
+      item = @queue.pop
+      @queue.unlock(item[:id])
+      item2 = @queue.pop
+      item2[:body].should eq body
+    end
+
     it "should return an id" do
       a = insert_and_inspect("foo")
       m = @queue.pop
@@ -355,8 +364,7 @@ describe Mongo::Dequeue do
       @a = insert_and_inspect("a")
       @b = insert_and_inspect("b")
       @c = insert_and_inspect("c")
-
-
+      
       @ap = @queue.pop
       @queue.complete(@ap[:id])
       @ac = @queue.send(:collection).find_one({:_id => BSON::ObjectId.from_string(@ap[:id])})
