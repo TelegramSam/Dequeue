@@ -4,14 +4,14 @@
 # -*- encoding: utf-8 -*-
 
 Gem::Specification.new do |s|
-  s.name = %q{mongo-dequeue}
-  s.version = "0.6.3"
+  s.name = "mongo-dequeue"
+  s.version = "0.6.4"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["TelegramSam"]
-  s.date = %q{2011-08-29}
-  s.description = %q{A de-duplicating priority queue that uses mongodb as the storage engine.}
-  s.email = %q{telegramsam@gmail.com}
+  s.date = "2012-03-22"
+  s.description = "A de-duplicating priority queue that uses mongodb as the storage engine."
+  s.email = "telegramsam@gmail.com"
   s.extra_rdoc_files = [
     "LICENSE.txt",
     "README.rdoc"
@@ -28,11 +28,11 @@ Gem::Specification.new do |s|
     "spec/mongo_dequeue_spec.rb",
     "spec/spec_helper.rb"
   ]
-  s.homepage = %q{http://github.com/TelegramSam/Dequeue}
+  s.homepage = "http://github.com/TelegramSam/Dequeue"
   s.licenses = ["MIT"]
   s.require_paths = ["lib"]
-  s.rubygems_version = %q{1.5.3}
-  s.summary = %q{Mongo based de-duplicating pritority queue}
+  s.rubygems_version = "1.8.15"
+  s.summary = "Mongo based de-duplicating pritority queue"
 
   if s.respond_to? :specification_version then
     s.specification_version = 3
@@ -43,14 +43,20 @@ Gem::Specification.new do |s|
       s.add_development_dependency(%q<shoulda>, [">= 0"])
       s.add_development_dependency(%q<bundler>, ["~> 1.0.0"])
       s.add_development_dependency(%q<jeweler>, ["~> 1.6.2"])
+      s.add_development_dependency(%q<rdoc>, [">= 0"])
       s.add_development_dependency(%q<rcov>, [">= 0"])
+      s.add_development_dependency(%q<rspec>, [">= 2"])
+      s.add_development_dependency(%q<timecop>, [">= 0"])
     else
       s.add_dependency(%q<json>, [">= 0"])
       s.add_dependency(%q<mongo>, [">= 0"])
       s.add_dependency(%q<shoulda>, [">= 0"])
       s.add_dependency(%q<bundler>, ["~> 1.0.0"])
       s.add_dependency(%q<jeweler>, ["~> 1.6.2"])
+      s.add_dependency(%q<rdoc>, [">= 0"])
       s.add_dependency(%q<rcov>, [">= 0"])
+      s.add_dependency(%q<rspec>, [">= 2"])
+      s.add_dependency(%q<timecop>, [">= 0"])
     end
   else
     s.add_dependency(%q<json>, [">= 0"])
@@ -58,7 +64,10 @@ Gem::Specification.new do |s|
     s.add_dependency(%q<shoulda>, [">= 0"])
     s.add_dependency(%q<bundler>, ["~> 1.0.0"])
     s.add_dependency(%q<jeweler>, ["~> 1.6.2"])
+    s.add_dependency(%q<rdoc>, [">= 0"])
     s.add_dependency(%q<rcov>, [">= 0"])
+    s.add_dependency(%q<rspec>, [">= 2"])
+    s.add_dependency(%q<timecop>, [">= 0"])
   end
 end
 
