@@ -31,7 +31,7 @@ describe Mongo::Dequeue do
     end
 
     it "should have a sane set of defaults" do
-      q = Mongo::Dequeue.new(nil)
+      q = Mongo::Dequeue.new(@collection)
       q.config[:timeout].should    eql 300
     end
   end

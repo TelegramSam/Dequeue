@@ -22,6 +22,13 @@ class Mongo::Dequeue
 	#
 	def initialize(collection, opts={})
 		@collection = collection
+    @collection.ensure_index([["locked", Mongo::ASCENDING],
+                             ["complete", Mongo::ASCENDING],
+                             ["priority", Mongo::DESCENDING],
+                             ["inserted_at", Mongo::ASCENDING]])
+    @collection.ensure_index([["duplicate_key", Mongo::ASCENDING],
+                             ["complete", Mongo::ASCENDING],
+                             ["locked_at", Mongo::ASCENDING]])
 		@config = DEFAULT_CONFIG.merge(opts)
 		@batch = []
 	end
