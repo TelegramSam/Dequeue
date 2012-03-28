@@ -574,7 +574,7 @@ describe Mongo::Dequeue do
 
     end
 
-    describe "locking an item until a certain time" do
+    describe "locking an item until a certain time on a queue where timeout is disabled" do
       before(:all) do
         # ensure the item timeout feature is disabled
         opts = {:timeout => nil}
@@ -594,26 +594,49 @@ describe Mongo::Dequeue do
         @raw_item = @collection.find_one(BSON::ObjectId.from_string(item[:id]))
       end
 
-      it "should not be marked as completed" do
-        @raw_item['complete'].should be_false
-      end
+      describe "item inside of the queue" do
+        it "should not be marked as completed" do
+          @raw_item['complete'].should be_false
+        end
 
-      it "should not be locked" do
-        @raw_item['locked'].should be_false
-      end
-
-      it "should not be popped out if the lock is not expired" do
-        Timecop.freeze(@base_time + 2) do
-          @queue.pop.should be_nil
+        it "should not be locked" do
+          @raw_item['locked'].should be_false
         end
       end
 
-      it "should be popped out once the lock expires"do
-        Timecop.freeze(@base_time + 60) do
-          item = @queue.pop
-          item.should_not be_nil
-          item[:id].should be_eql @raw_item["_id"].to_s
+      describe "popping" do
+        it "should not be popped out if the lock is not expired" do
+          Timecop.freeze(@base_time + 2) do
+            @queue.pop.should be_nil
+          end
         end
+
+        it "should be popped out once the lock expires"do
+          Timecop.freeze(@base_time + 60) do
+            item = @queue.pop
+            item.should_not be_nil
+            item[:id].should == @raw_item["_id"].to_s
+          end
+        end
+      end
+
+      describe "peekin" do
+        it "should not be peeked out if the lock is not expired" do
+          Timecop.freeze(@base_time + 2) do
+            @queue.peek.count.should be_zero
+          end
+        end
+
+        it "should be peeked once the lock expires"do
+          Timecop.freeze(@base_time + 60) do
+            items = @queue.peek
+            items.count.should == 1
+            item = items.first
+            item.should_not be_nil
+            item["_id"].should == @raw_item["_id"]
+          end
+        end
+
       end
 
     end

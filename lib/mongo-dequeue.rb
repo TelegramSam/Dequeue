@@ -296,7 +296,11 @@ class Mongo::Dequeue
                        {:locked_till=> nil},
                        {:locked_till=>{'$lt'=>Time.now.utc}}]
     else
-      query = {:locked => false}
+      query = { "$and" => [{:complete => false}, {:locked => false },
+                           { "$or" => [{:locked_till => nil},
+                                       {:locked_till => {'$lt' => Time.now.utc}}]
+                                      }]}
+
     end
 
     collection.find( query, 
