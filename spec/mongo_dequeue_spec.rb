@@ -191,7 +191,7 @@ describe Mongo::Dequeue do
         actual = @queue.pop
         actual[:body].should eq body
       end
-  end
+    end
 
     it "should return an id" do
       a = insert_and_inspect("foo")
@@ -581,6 +581,50 @@ describe Mongo::Dequeue do
         lambda do
           @queue.decrease_item_priority(item['_id'])
         end.should_not raise_error
+      end
+
+    end
+
+    describe "locking an item until a certain time" do
+      before(:all) do
+        # ensure the item timeout feature is disabled
+        opts = {:timeout => nil}
+        @queue = Mongo::Dequeue.new(@collection, opts)
+        @queue.flush!
+      end
+
+      before(:each) do
+        insert_and_inspect("Test")
+        item = @queue.pop
+
+        @base_time = Time.now
+        Timecop.freeze(@base_time) do
+          @queue.lock_until(item[:id], 15)
+        end
+
+        @raw_item = @collection.find_one(BSON::ObjectId.from_string(item[:id]))
+      end
+
+      it "should not be marked as completed" do
+        @raw_item['complete'].should be_false
+      end
+
+      it "should not be locked" do
+        @raw_item['locked'].should be_false
+      end
+
+      it "should not be popped out if the lock is not expired" do
+        Timecop.freeze(@base_time + 2) do
+          @queue.pop.should be_nil
+        end
+      end
+
+      it "should be popped out once the lock expires"do
+        Timecop.freeze(@base_time + 60) do
+          item = @queue.pop
+          item.should_not be_nil
+          item[:id].should be_eql @raw_item["_id"].to_s
+        end
       end
 
     end

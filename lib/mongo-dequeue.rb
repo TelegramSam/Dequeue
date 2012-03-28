@@ -141,11 +141,10 @@ class Mongo::Dequeue
                                 {:locked_till=>{'$lt'=>Time.now.utc}}] }
     else
       cmd['update'] = { '$set' => {:locked => true} }
-      cmd['query'] = { "$or" => [
-                       { "$and" => [{:complete => false}, {:locked => false }] },
-                       { "$and" => [{:complete => false}, {:locked => false},
-                                    {:locked_till => {"$ne" => nil}},
-                                    {:locked_till => {'$lt' => Time.now.utc}}] }]}
+      cmd['query']  = { "$and" => [{:complete => false}, {:locked => false },
+                                   { "$or" => [{:locked_till => nil},
+                                               {:locked_till => {'$lt' => Time.now.utc}}]
+                                   }]}
     end
     cmd['limit'] = 1
     cmd['new']   = true
@@ -169,44 +168,41 @@ class Mongo::Dequeue
 
   # "Re-add" the document to the queue
   def unlock(id)
-    begin
-      cmd = BSON::OrderedHash.new
-      cmd['findandmodify'] = collection.name
-      cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
-      cmd['update']        = {'$set' => {:locked => false, :locked_till => nil}}
-      collection.db.command(cmd)
-    rescue Mongo::OperationFailure => of
-      nil
-    end
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
+    cmd['update']        = {'$set' => {:locked => false, :locked_till => nil}}
+    collection.db.command(cmd)
+  rescue Mongo::OperationFailure => of
+    nil
   end
 
   def lock_until(id, timeout)
-    begin
-      cmd = BSON::OrderedHash.new
-      cmd['findandmodify'] = collection.name
-      cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
-      cmd['update']        = {'$set' => {:locked => false, :locked_till => Time.now.utc+timeout}}
-      collection.db.command(cmd)
-    rescue Mongo::OperationFailure => of
-      nil
-    end
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
+    cmd['update']        = {'$set' => {:locked => false,
+                                       :locked_till => (Time.now.utc + timeout)}}
+    collection.db.command(cmd)
+  rescue Mongo::OperationFailure => of
+    nil
   end
 
 	# Remove the document from the queue. This should be called when the work is done and the document is no longer needed.
 	# You must provide the process identifier that the document was locked with to complete it.
 	def complete(id)
-		begin
-			cmd = BSON::OrderedHash.new
-			cmd['findandmodify'] = collection.name
-			cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
-			cmd['update']        = {'$set' => {:completed_at => Time.now.utc, :complete => true}, '$inc' => {:completecount => 1} }
-			cmd['limit']         = 1
-			collection.db.command(cmd)
-		rescue Mongo::OperationFailure => of
-		#opfailure happens when item has been already completed
-		return nil
-		end
-	end
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
+    cmd['update']        = {'$set' => {:completed_at => Time.now.utc,
+                                       :complete => true},
+                                       '$inc' => {:completecount => 1} }
+    cmd['limit']         = 1
+    collection.db.command(cmd)
+  rescue Mongo::OperationFailure => of
+    #opfailure happens when item has been already completed
+    nil
+  end
 
 	# Removes completed job history
 	def cleanup()
