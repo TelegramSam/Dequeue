@@ -182,17 +182,6 @@ describe Mongo::Dequeue do
       item2[:body].should eq body
     end
 
-    it "should lock an item until a certain time" do
-      body = "Lock me"
-      @queue.push body, {:priority => 1}
-      item = @queue.pop
-      @queue.lock_until(item[:id], 5)
-      Timecop.travel(Time.local(Time.now.year + 1)) do
-        actual = @queue.pop
-        actual[:body].should eq body
-      end
-    end
-
     it "should return an id" do
       a = insert_and_inspect("foo")
       m = @queue.pop
