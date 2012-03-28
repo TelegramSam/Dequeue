@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["TelegramSam"]
-  s.date = "2012-03-27"
+  s.date = "2012-03-28"
   s.description = "A de-duplicating priority queue that uses mongodb as the storage engine."
   s.email = "telegramsam@gmail.com"
   s.extra_rdoc_files = [
