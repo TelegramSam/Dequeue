@@ -141,7 +141,11 @@ class Mongo::Dequeue
                                 {:locked_till=>{'$lt'=>Time.now.utc}}] }
     else
       cmd['update'] = { '$set' => {:locked => true} }
-      cmd['query']  = { :complete => false, :locked => false }
+      cmd['query'] = { "$or" => [
+                       { "$and" => [{:complete => false}, {:locked => false }] },
+                       { "$and" => [{:complete => false}, {:locked => false},
+                                    {:locked_till => {"$ne" => nil}},
+                                    {:locked_till => {'$lt' => Time.now.utc}}] }]}
     end
     cmd['limit'] = 1
     cmd['new']   = true
@@ -170,6 +174,18 @@ class Mongo::Dequeue
       cmd['findandmodify'] = collection.name
       cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
       cmd['update']        = {'$set' => {:locked => false, :locked_till => nil}}
+      collection.db.command(cmd)
+    rescue Mongo::OperationFailure => of
+      nil
+    end
+  end
+
+  def lock_until(id, timeout)
+    begin
+      cmd = BSON::OrderedHash.new
+      cmd['findandmodify'] = collection.name
+      cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
+      cmd['update']        = {'$set' => {:locked => false, :locked_till => Time.now.utc+timeout}}
       collection.db.command(cmd)
     rescue Mongo::OperationFailure => of
       nil
