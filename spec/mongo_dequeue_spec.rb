@@ -204,6 +204,23 @@ describe Mongo::Dequeue do
       @queue.send(:collection).count.should be 1
     end
 
+    it "should always set the locked_at attribute" do
+      expected = Time.now.utc
+      @queue.push 'test item 1'
+      @queue.push 'test item 2'
+
+      Timecop.freeze expected do
+        item_id = @queue.pop[:id]
+        raw_item = @collection.find_one({ '_id' => BSON::ObjectId(item_id) })
+        raw_item['locked_at'].to_i.should eq expected.to_i
+
+        item_id = @queue.pop(:timeout => 60)[:id]
+        raw_item = @collection.find_one({ '_id' => BSON::ObjectId(item_id) })
+        raw_item['locked_at'].to_i.should eq expected.to_i
+      end
+
+    end
+
     it "should consider the timeout value" do
       time    = Time.now
       timeout = 120

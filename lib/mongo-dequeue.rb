@@ -129,18 +129,22 @@ class Mongo::Dequeue
 	# {:body=>"foo", :id=>"4e039c372b70275e345206e4"}
 
 	def pop(opts = {})
-    timeout = opts[:timeout] || @config[:timeout]
+    timeout   = opts[:timeout] || @config[:timeout]
+    locked_at = Time.now.utc
 
     cmd = BSON::OrderedHash.new
     cmd['findandmodify'] = collection.name
     if timeout
-      cmd['update'] = {'$set' => {:locked_till => Time.now.utc+timeout, :locked => true}}
+      cmd['update'] = { '$set' => { :locked_at => locked_at,
+                                    :locked_till => locked_at + timeout,
+                                    :locked => true } }
       cmd['query']  = {:complete => false,
                        '$or'=>[ {:locked => false},
                                 {:locked_till=> nil},
                                 {:locked_till=>{'$lt'=>Time.now.utc}}] }
     else
-      cmd['update'] = { '$set' => {:locked => true} }
+      cmd['update'] = { '$set' => { :locked => true,
+                                    :locked_at => locked_at } }
       cmd['query']  = { "$and" => [{:complete => false}, {:locked => false },
                                    { "$or" => [{:locked_till => nil},
                                                {:locked_till => {'$lt' => Time.now.utc}}]
