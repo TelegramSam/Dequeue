@@ -5,7 +5,7 @@ describe Mongo::Dequeue do
 
   def insert_and_inspect(body, options={})
     @queue.push(body,options)
-    @queue.send(:collection).find_one
+    @collection.find_one
   end
 
 
@@ -84,7 +84,7 @@ describe Mongo::Dequeue do
 
     it "should correctly add items on process" do
       @queue.batchprocess()
-      @queue.send(:collection).count.should == 3
+      @collection.count.should == 3
       @queue.batch.length.should == 0
     end
 
@@ -120,13 +120,13 @@ describe Mongo::Dequeue do
     it "should combine identical bodies of type string" do
       a = insert_and_inspect("foo")
       b = insert_and_inspect("foo")
-      @queue.send(:collection).count.should be 1  
+      @collection.count.should be 1  
     end
 
     it "should not combine different bodies of type string" do
       a = insert_and_inspect("foo")
       b = insert_and_inspect("bar")
-      @queue.send(:collection).count.should be 2
+      @collection.count.should be 2
       b['count'].should be 1
     end
 
@@ -135,27 +135,27 @@ describe Mongo::Dequeue do
       a = insert_and_inspect({:a=>'a',:b=>'b'})
       b = insert_and_inspect({:a=>'a',:b=>'b'})
       c = insert_and_inspect({:b=>'b',:a=>'a'})
-      @queue.send(:collection).count.should be 1
+      @collection.count.should be 1
     end
 
     it "should not combine different bodies of type struct" do
       a = insert_and_inspect({:a=>'a',:b=>'b'})
       b = insert_and_inspect({:a=>'a',:c=>'c'})
-      @queue.send(:collection).count.should be 2
+      @collection.count.should be 2
       b['count'].should be 1
     end
 
     it "should combine based on duplication_key" do
       a = insert_and_inspect({:a=>'a',:b=>'b'}, :duplicate_key => 'match')
       b = insert_and_inspect({:a=>'a',:c=>'c'}, :duplicate_key => 'match')
-      @queue.send(:collection).count.should be 1
+      @collection.count.should be 1
       b['count'].should be 2
     end
 
     it "should not combine based on duplication_key" do
       a = insert_and_inspect("foo", :duplicate_key => 'match')
       b = insert_and_inspect("foo", :duplicate_key => 'nomatch')
-      @queue.send(:collection).count.should be 2
+      @collection.count.should be 2
       b['count'].should be 1
     end
 
@@ -170,7 +170,7 @@ describe Mongo::Dequeue do
       a = insert_and_inspect("foo")
       m = @queue.pop
       m[:body].should eq "foo"
-      @queue.send(:collection).count.should be 1
+      @collection.count.should be 1
     end
 
     it "should unlock a queue item" do
@@ -186,13 +186,13 @@ describe Mongo::Dequeue do
       a = insert_and_inspect("foo")
       m = @queue.pop
       m[:id].should_not be nil
-      @queue.send(:collection).count.should be 1  
+      @collection.count.should be 1  
     end
 
     it "should return nil when queue is empty" do
       m = @queue.pop
       m.should be nil
-      @queue.send(:collection).count.should be 0 
+      @collection.count.should be 0 
     end
 
     it "should complete ok" do
@@ -201,7 +201,7 @@ describe Mongo::Dequeue do
       @queue.complete(m[:id])
       m2 = @queue.pop
       m2.should be nil
-      @queue.send(:collection).count.should be 1
+      @collection.count.should be 1
     end
 
     it "should always set the locked_at attribute" do
@@ -384,16 +384,16 @@ describe Mongo::Dequeue do
       
       @ap = @queue.pop
       @queue.complete(@ap[:id])
-      @ac = @queue.send(:collection).find_one({:_id => BSON::ObjectId.from_string(@ap[:id])})
+      @ac = @collection.find_one({:_id => BSON::ObjectId.from_string(@ap[:id])})
 
       @bp = @queue.pop
-      @bc = @queue.send(:collection).find_one({:_id => BSON::ObjectId.from_string(@bp[:id])})
+      @bc = @collection.find_one({:_id => BSON::ObjectId.from_string(@bp[:id])})
 
       @cp = @queue.pop
       @queue.complete(@cp[:id])
       @queue.complete(@cp[:id])
       @queue.complete(@cp[:id])
-      @cc = @queue.send(:collection).find_one({:_id => BSON::ObjectId.from_string(@cp[:id])})
+      @cc = @collection.find_one({:_id => BSON::ObjectId.from_string(@cp[:id])})
       @stats = @queue.stats
 
     end
@@ -503,7 +503,7 @@ describe Mongo::Dequeue do
 
         @queue.change_item_priority item['_id'], expected_priority
 
-        item = @queue.send(:collection).find_one
+        item = @collection.find_one
         item["priority"].should eq expected_priority
       end
 
@@ -511,7 +511,7 @@ describe Mongo::Dequeue do
         item = insert_and_inspect("Test", {:priority => 2})
         id = item['_id']
 
-        @queue.send(:collection).remove('_id' => id)
+        @collection.remove('_id' => id)
         @queue.stats[:total].should eq 0
 
         lambda do
@@ -528,7 +528,7 @@ describe Mongo::Dequeue do
 
         @queue.increase_item_priority item['_id']
 
-        item = @queue.send(:collection).find_one
+        item = @collection.find_one
         item["priority"].should eq expected_priority
       end
 
@@ -538,7 +538,7 @@ describe Mongo::Dequeue do
 
         @queue.increase_item_priority item['_id'], 2
 
-        item = @queue.send(:collection).find_one
+        item = @collection.find_one
         item["priority"].should eq expected_priority
       end
 
@@ -546,7 +546,7 @@ describe Mongo::Dequeue do
         item = insert_and_inspect("Test", {:priority => 2})
         id = item['_id']
 
-        @queue.send(:collection).remove('_id' => id)
+        @collection.remove('_id' => id)
         @queue.stats[:total].should eq 0
 
         lambda do
@@ -563,7 +563,7 @@ describe Mongo::Dequeue do
 
         @queue.decrease_item_priority item['_id']
 
-        item = @queue.send(:collection).find_one
+        item = @collection.find_one
         item["priority"].should eq expected_priority
       end
 
@@ -573,7 +573,7 @@ describe Mongo::Dequeue do
 
         @queue.decrease_item_priority item['_id'], 2
 
-        item = @queue.send(:collection).find_one
+        item = @collection.find_one
         item["priority"].should eq expected_priority
       end
 
@@ -581,7 +581,7 @@ describe Mongo::Dequeue do
         item = insert_and_inspect("Test", {:priority => 2})
         id = item['_id']
 
-        @queue.send(:collection).remove('_id' => id)
+        @collection.remove('_id' => id)
         @queue.stats[:total].should eq 0
 
         lambda do
