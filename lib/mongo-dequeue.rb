@@ -22,6 +22,13 @@ class Mongo::Dequeue
 	#
 	def initialize(collection, opts={})
 		@collection = collection
+    @collection.ensure_index([["locked", Mongo::ASCENDING],
+                             ["complete", Mongo::ASCENDING],
+                             ["priority", Mongo::DESCENDING],
+                             ["inserted_at", Mongo::ASCENDING]])
+    @collection.ensure_index([["duplicate_key", Mongo::ASCENDING],
+                             ["complete", Mongo::ASCENDING],
+                             ["locked_at", Mongo::ASCENDING]])
 		@config = DEFAULT_CONFIG.merge(opts)
 		@batch = []
 	end
@@ -32,7 +39,9 @@ class Mongo::Dequeue
 	end
 
 	# Insert a new item into the queue.
-	#
+  # Valid options:
+  #   - :priority: integer value, 3 by default.
+  #   - :duplicate_key
 	# Example:
 	#    queue.insert(:name => 'Billy', :email => 'billy@example.com', :message => 'Here is the thing you asked for')
 	def push(body, item_opts = {})
@@ -48,6 +57,7 @@ class Mongo::Dequeue
 				:body => body,
 				:inserted_at => Time.now.utc,
 				:complete => false,
+        :locked => false,
 				:locked_till => nil,
 				:completed_at => nil,
 				:priority => item_opts[:priority] || @config[:default_priority],
@@ -87,6 +97,7 @@ class Mongo::Dequeue
 							'body': e.body,
 							'inserted_at': nowutc,
 							'complete': false,
+              'locked' : false,
 							'locked_till': null,
 							'completed_at': null,
 							'priority': e.priority,
@@ -118,40 +129,84 @@ class Mongo::Dequeue
 	# {:body=>"foo", :id=>"4e039c372b70275e345206e4"}
 
 	def pop(opts = {})
-		begin
-			timeout = opts[:timeout] || @config[:timeout]
-			cmd = BSON::OrderedHash.new
-			cmd['findandmodify'] = collection.name
-			cmd['update']        = {'$set' => {:locked_till => Time.now.utc+timeout}}
-			cmd['query']         = {:complete => false, '$or'=>[{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}] }
-			cmd['sort']          = {:priority=>-1,:inserted_at=>1}
-			cmd['limit']         = 1
-			cmd['new']           = true
-			result = collection.db.command(cmd)
-		rescue Mongo::OperationFailure => of
-		return nil
-		end
-		return {
-			:body => result['value']['body'],
-			:id => result['value']['_id'].to_s
-		}
-	end
+    timeout   = opts[:timeout] || @config[:timeout]
+    locked_at = Time.now.utc
+
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    if timeout
+      cmd['update'] = { '$set' => { :locked_at => locked_at,
+                                    :locked_till => locked_at + timeout,
+                                    :locked => true } }
+      cmd['query']  = {:complete => false,
+                       '$or'=>[ {:locked => false},
+                                {:locked_till=> nil},
+                                {:locked_till=>{'$lt'=>Time.now.utc}}] }
+    else
+      cmd['update'] = { '$set' => { :locked => true,
+                                    :locked_at => locked_at } }
+      cmd['query']  = { "$and" => [{:complete => false}, {:locked => false },
+                                   { "$or" => [{:locked_till => nil},
+                                               {:locked_till => {'$lt' => Time.now.utc}}]
+                                   }]}
+    end
+    cmd['limit'] = 1
+    cmd['new']   = true
+
+    sort_directive               = BSON::OrderedHash.new
+    sort_directive[:priority]    = Mongo::DESCENDING
+    sort_directive[:inserted_at] = Mongo::ASCENDING
+    cmd['sort']                  = sort_directive
+
+    result = collection.db.command(cmd)
+
+    if result['value']
+      { :body => result['value']['body'],
+        :id => result['value']['_id'].to_s }
+    else
+      nil
+    end
+  rescue Mongo::OperationFailure => of
+    nil
+  end
+
+  # "Re-add" the document to the queue
+  def unlock(id)
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
+    cmd['update']        = {'$set' => {:locked => false, :locked_till => nil}}
+    collection.db.command(cmd)
+  rescue Mongo::OperationFailure => of
+    nil
+  end
+
+  def lock_until(id, timeout)
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
+    cmd['update']        = {'$set' => {:locked => false,
+                                       :locked_till => (Time.now.utc + timeout)}}
+    collection.db.command(cmd)
+  rescue Mongo::OperationFailure => of
+    nil
+  end
 
 	# Remove the document from the queue. This should be called when the work is done and the document is no longer needed.
 	# You must provide the process identifier that the document was locked with to complete it.
 	def complete(id)
-		begin
-			cmd = BSON::OrderedHash.new
-			cmd['findandmodify'] = collection.name
-			cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
-			cmd['update']        = {'$set' => {:completed_at => Time.now.utc, :complete => true}, '$inc' => {:completecount => 1} }
-			cmd['limit']         = 1
-			collection.db.command(cmd)
-		rescue Mongo::OperationFailure => of
-		#opfailure happens when item has been already completed
-		return nil
-		end
-	end
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['query']         = {:_id => BSON::ObjectId.from_string(id)}
+    cmd['update']        = {'$set' => {:completed_at => Time.now.utc,
+                                       :complete => true},
+                                       '$inc' => {:completecount => 1} }
+    cmd['limit']         = 1
+    collection.db.command(cmd)
+  rescue Mongo::OperationFailure => of
+    #opfailure happens when item has been already completed
+    nil
+  end
 
 	# Removes completed job history
 	def cleanup()
@@ -167,10 +222,10 @@ class Mongo::Dequeue
 			      return db.eval(
 			      function(){
 			      	var nowutc = new Date();
-			      	var a = db.#{collection.name}.count({'complete': false, '$or':[{'locked_till':null},{'locked_till':{'$lt':nowutc}}] });
+			      	var a = db.#{collection.name}.count({'complete': false, '$or':[{'locked' : false}, {'locked_till':null},{'locked_till':{'$lt':nowutc}}] });
 			        var c = db.#{collection.name}.count({'complete': true});
 			        var t = db.#{collection.name}.count();
-			        var l = db.#{collection.name}.count({'complete': false, 'locked_till': {'$gte':nowutc} });
+			        var l = db.#{collection.name}.count({'complete': false, 'locked' : true, 'locked_till': {'$gte':nowutc} });
 			        var rc = db.#{collection.name}.group({
 			        	'key': {},
 			        	'cond': {'complete':true},
@@ -236,15 +291,56 @@ class Mongo::Dequeue
 		return Digest::MD5.hexdigest(body.to_json) #won't ever match a duplicate. Need a better way to handle hashes and arrays.
 	end
 
-	def peek
-		firstfew = collection.find({
-			:complete => false,
-			'$or'=>[{:locked_till=> nil},{:locked_till=>{'$lt'=>Time.now.utc}}]
-		},
-		:sort => [[:priority, :descending],[:inserted_at, :ascending]],
-		:limit => 10)
-		return firstfew
-	end
+  def peek(opts = {})
+    timeout = opts[:timeout] || @config[:timeout]
+    query = {:complete => false, }
+
+    if timeout
+      query['$or'] = [ {:locked => false},
+                       {:locked_till=> nil},
+                       {:locked_till=>{'$lt'=>Time.now.utc}}]
+    else
+      query = { "$and" => [{:complete => false}, {:locked => false },
+                           { "$or" => [{:locked_till => nil},
+                                       {:locked_till => {'$lt' => Time.now.utc}}]
+                                      }]}
+
+    end
+
+    collection.find( query, 
+                    :sort => [[:priority, :descending],[:inserted_at, :ascending]],
+                    :limit => 10)
+  end
+
+  # Set the priority of an item to a custom value
+  def change_item_priority obj_id, priority
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['update']        = { '$set' => { :priority => priority } }
+    cmd['query']         = { '_id' => obj_id }
+
+    collection.db.command(cmd)
+  end
+
+  # Increase the priority of an item by a given value
+  def increase_item_priority obj_id, step=1
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['update']        = { '$inc' => { :priority => step } }
+    cmd['query']         = { '_id' => obj_id }
+
+    collection.db.command(cmd)
+  end
+
+  # Decrease the priority of an item by a given value
+  def decrease_item_priority obj_id, step=1
+    cmd = BSON::OrderedHash.new
+    cmd['findandmodify'] = collection.name
+    cmd['update']        = { '$inc' => { :priority => - step } }
+    cmd['query']         = { '_id' => obj_id }
+
+    collection.db.command(cmd)
+  end
 
 	protected
 

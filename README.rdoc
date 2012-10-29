@@ -26,6 +26,8 @@ Items popped from the queue must be confirmed complete, or they will be reissued
 
     queue = Mongo::Dequeue.new(collection, options)
 
+If timeout is set to nil read timeout feature will be disabled.
+
 === Pushing Items
 Items have a body, passed as the first argument to push(). A body can be a string, number, hash, or array. These 
 values are preserved in the Mongo collection used to store the queue, allowing you to inspect the queue and see these values.
